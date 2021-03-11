@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "linux_parser.h"
 #include "process.h"
 #include "processor.h"
 
@@ -33,12 +34,7 @@ std::string System::Kernel() {
     return this->Kernel_;
   }
 
-  this->Kernel_ = "<NOT DETECTED>";
-
-  struct utsname name;
-  uname(&name);
-
-  this->Kernel_ = string(name.sysname) + " " + string(name.release);
+  this->Kernel_ = LinuxParser::Kernel();
 
   return this->Kernel_;
 }
@@ -52,39 +48,7 @@ std::string System::OperatingSystem() {
     return this->OperatingSystem_;
   }
 
-  this->OperatingSystem_ = "<NOT DETECTED>";
-
-  unordered_map<string, string> probeLocations = {
-      {"/etc/os-release", "PRETTY_NAME"},
-      {"/etc/lsb-release", "DISTRIB_DESCRIPTION"}};
-
-  ifstream infile;
-  string OSNameKey, line;
-  for (auto& it : probeLocations) {
-    infile.open(it.first);
-    if (infile.good()) {
-      OSNameKey = it.second;
-      break;
-    }
-  }
-
-  while (getline(infile, line)) {
-    if (line.length() > 0 && line[0] != '#') {
-      size_t found = line.find("=");
-      if (found == string::npos) {
-        continue;
-      }
-      string key, value;
-      key = line.substr(0, found);
-      if (key == OSNameKey) {
-        value = line.substr(found + 1);
-        if (value.front() == '"' && value.back() == '"') {
-          value = value.substr(1, value.find_last_of('"') - 1);
-        }
-        OperatingSystem_ = value;
-      }
-    }
-  }
+  this->OperatingSystem_ = LinuxParser::OperatingSystem();
 
   return OperatingSystem_;
 }
