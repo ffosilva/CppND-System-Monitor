@@ -3,7 +3,11 @@
 #include <dirent.h>
 #include <unistd.h>
 
+#if __has_include(<filesystem>)
 #include <filesystem>
+#define USE_FILESYSTEM
+#endif
+
 #include <sstream>
 #include <string>
 #include <vector>
@@ -54,6 +58,7 @@ string LinuxParser::Kernel() {
 vector<int> LinuxParser::Pids() {
   vector<int> pids;
 
+#ifdef USE_FILESYSTEM
   std::filesystem::directory_iterator dir_iter(kProcDirectory);
   for (auto file : dir_iter) {
     string filename(file.path().filename());
@@ -62,6 +67,22 @@ vector<int> LinuxParser::Pids() {
       pids.push_back(pid);
     }
   }
+#else
+  DIR* directory = opendir(kProcDirectory.c_str());
+  struct dirent* file;
+  while ((file = readdir(directory)) != nullptr) {
+    // Is this a directory?
+    if (file->d_type == DT_DIR) {
+      // Is every character of the name a digit?
+      string filename(file->d_name);
+      if (std::all_of(filename.begin(), filename.end(), isdigit)) {
+        int pid = stoi(filename);
+        pids.push_back(pid);
+      }
+    }
+  }
+  closedir(directory);
+#endif /* !USE_FILESYSTEM */
 
   return pids;
 }
