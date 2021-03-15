@@ -9,6 +9,7 @@
 #include <vector>
 
 using std::stof;
+using std::stol;
 using std::string;
 using std::to_string;
 using std::vector;
@@ -112,24 +113,64 @@ long LinuxParser::UpTime() {
   return 0;
 }
 
-// TODO: Read and return the number of jiffies for the system
-long LinuxParser::Jiffies() { return 0; }
+// Read and return the number of jiffies for the system
+long LinuxParser::Jiffies() {
+  long totalJiffies = 0;
+
+  for (auto timer : CpuUtilization()) {
+    totalJiffies += stol(timer);
+  }
+
+  return totalJiffies;
+}
 
 // TODO: Read and return the number of active jiffies for a PID
 // REMOVE: [[maybe_unused]] once you define the function
-long LinuxParser::ActiveJiffies(int pid [[maybe_unused]]) { return 0; }
+long LinuxParser::ActiveJiffies(int pid [[maybe_unused]]) { return 1; }
 
 // TODO: Read and return the number of active jiffies for the system
-long LinuxParser::ActiveJiffies() { return 0; }
+long LinuxParser::ActiveJiffies() { return Jiffies() - IdleJiffies(); }
 
 // TODO: Read and return the number of idle jiffies for the system
-long LinuxParser::IdleJiffies() { return 0; }
+long LinuxParser::IdleJiffies() {
+  vector<string> cpuUtilization = CpuUtilization();
+  return std::stol(cpuUtilization[CPUStates::kIdle_]) +
+         std::stol(cpuUtilization[CPUStates::kIOwait_]);
+}
 
 // TODO: Read and return CPU utilization
-vector<string> LinuxParser::CpuUtilization() { return {"3", "3", "2", "1"}; }
+vector<string> LinuxParser::CpuUtilization() {
+  vector<string> ret;
+  string value, line;
+
+  std::ifstream stream(kProcDirectory + kStatFilename);
+  if (stream.is_open()) {
+    std::getline(stream, line);
+    std::istringstream linestream(line);
+    linestream.ignore(256, ' ');
+    while (linestream >> value) ret.push_back(value);
+  }
+  return ret;
+}
 
 // Read and return the total number of processes
-int LinuxParser::TotalProcesses() { return LinuxParser::Pids().size(); }
+int LinuxParser::TotalProcesses() {
+  string line;
+  string key;
+  int value = 0;
+  std::ifstream filestream(kProcDirectory + kStatFilename);
+  if (filestream.is_open()) {
+    while (std::getline(filestream, line)) {
+      std::istringstream linestream(line);
+      while (linestream >> key >> value) {
+        if (key == "processes") {
+          return value;
+        }
+      }
+    }
+  }
+  return value;
+}
 
 // Read and return the number of running processes
 int LinuxParser::RunningProcesses() {
